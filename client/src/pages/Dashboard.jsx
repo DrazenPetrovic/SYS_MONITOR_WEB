@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchMetrics, fetchMysql } from '../api/glances';
+import { fetchMetrics, fetchMysql, fetchMikrotik } from '../api/glances';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import SystemInfo from '../components/SystemInfo';
@@ -9,6 +9,7 @@ import NetworkCard from '../components/NetworkCard';
 import DiskCard from '../components/DiskCard';
 import ProcessCard from '../components/ProcessCard';
 import MysqlCard from '../components/MysqlCard';
+import MikrotikCard from '../components/MikrotikCard';
 
 const MAX_HISTORY = 60;
 const MAX_QPS_HISTORY = 60;
@@ -21,6 +22,7 @@ export default function Dashboard() {
   const { username, logout } = useAuth();
   const [metrics, setMetrics] = useState(null);
   const [mysqlData, setMysqlData] = useState(null);
+  const [mikrotikData, setMikrotikData] = useState(null);
   const [connected, setConnected] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const history = useRef({ cpu: [], netRx: [], netTx: [] });
@@ -89,6 +91,21 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [fetchMysqlData]);
 
+  const fetchMikrotikData = useCallback(async () => {
+    try {
+      const data = await fetchMikrotik(); // sada vraća array
+      setMikrotikData(data);
+    } catch {
+      setMikrotikData(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMikrotikData();
+    const id = setInterval(fetchMikrotikData, 3000);
+    return () => clearInterval(id);
+  }, [fetchMikrotikData]);
+
   return (
     <div className="min-h-screen bg-[#0a0e1a]">
       <Header username={username} connected={connected} onLogout={logout} />
@@ -105,6 +122,8 @@ export default function Dashboard() {
         {metrics && (
           <div className="space-y-3 md:space-y-4">
             <SystemInfo system={metrics.system} uptime={metrics.uptime} load={metrics.load} />
+
+            <MikrotikCard data={mikrotikData} />
 
             <MysqlCard data={mysqlData} />
 

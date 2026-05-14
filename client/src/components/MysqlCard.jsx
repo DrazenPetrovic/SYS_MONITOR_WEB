@@ -164,7 +164,7 @@ export default function MysqlCard({ data }) {
       )}
 
       {/* Query type breakdown */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         {[
           { label: 'SELECT', value: comSelect, color: 'text-blue-400' },
           { label: 'INSERT', value: comInsert, color: 'text-green-400' },
@@ -182,8 +182,8 @@ export default function MysqlCard({ data }) {
       {processlist.length > 0 && (
         <div>
           <div className="text-xs text-slate-500 mb-2">Active Queries ({processlist.length})</div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs min-w-[480px]">
+          <div className="overflow-x-auto -mx-4 px-4">
+            <table className="w-full text-xs min-w-[420px]">
               <thead>
                 <tr className="text-slate-500 border-b border-slate-700/50">
                   <th className="text-left pb-1.5 font-medium">User</th>

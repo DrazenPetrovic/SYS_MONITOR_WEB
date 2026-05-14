@@ -21,8 +21,8 @@ function MemBar({ label, used, total, pct }) {
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-xs text-slate-400 font-medium">{label}</span>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500 font-mono">{fmtBytes(used)} / {fmtBytes(total)}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500 font-mono hidden sm:inline">{fmtBytes(used)} / {fmtBytes(total)}</span>
           <span className="text-sm font-bold font-mono tabular-nums w-14 text-right" style={{ color }}>
             {pct.toFixed(1)}%
           </span>

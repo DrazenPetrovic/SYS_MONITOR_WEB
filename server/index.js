@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const axios = require("axios");
 const path = require("path");
 const mysql = require("mysql2/promise");
+const { RouterOSAPI } = require("node-routeros");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -136,6 +137,111 @@ app.get("/api/mysql", authenticate, async (req, res) => {
   } catch (err) {
     res.status(503).json({ error: "MySQL unavailable", details: err.message });
   }
+});
+
+// MikroTik ruteri — dodaj koliko god treba
+const MIKROTIK_ROUTERS = [
+  {
+    id: "router1",
+    name: process.env.MIKROTIK1_NAME || "Router 1",
+    host: process.env.MIKROTIK1_HOST || "karpas-proizvodnja.ddns.net",
+    user: process.env.MIKROTIK1_USER || "monitor",
+    password: process.env.MIKROTIK1_PASS || "TeletabisI!123",
+    port: parseInt(process.env.MIKROTIK1_PORT || "8728"),
+  },
+  {
+    id: "router2",
+    name: process.env.MIKROTIK2_NAME || "Router 2",
+    host: process.env.MIKROTIK2_HOST || "karpasambalaze.no-ip.biz",
+    user: process.env.MIKROTIK2_USER || "monitor",
+    password: process.env.MIKROTIK2_PASS || "TeletabisI!123",
+    port: parseInt(process.env.MIKROTIK2_PORT || "8728"),
+  },
+];
+
+// Per-router prev data za računanje brzina
+const _mtPrev = {};
+
+async function queryMikrotik(router) {
+  const api = new RouterOSAPI({
+    host: router.host,
+    user: router.user,
+    password: router.password,
+    port: router.port,
+    timeout: 6000,
+  });
+
+  await api.connect();
+  try {
+    const [resources, interfaces, connections, l2tpClients, pppActive] = await Promise.all([
+      api.write("/system/resource/print"),
+      api.write("/interface/print"),
+      api.write("/ip/firewall/connection/print", ["=count-only="]),
+      api.write("/interface/l2tp-client/print").catch(() => []),
+      api.write("/ppp/active/print").catch(() => []),
+    ]);
+
+    const now = Date.now();
+    const prev = _mtPrev[router.id];
+    const rates = {};
+
+    if (prev) {
+      const dt = (now - prev.time) / 1000;
+      interfaces.forEach((iface) => {
+        const p = prev.ifaces[iface.name];
+        if (p && dt > 0) {
+          rates[iface.name] = {
+            rxRate: Math.max(
+              0,
+              (parseInt(iface["rx-byte"] || 0) - parseInt(p["rx-byte"] || 0)) /
+                dt,
+            ),
+            txRate: Math.max(
+              0,
+              (parseInt(iface["tx-byte"] || 0) - parseInt(p["tx-byte"] || 0)) /
+                dt,
+            ),
+          };
+        }
+      });
+    }
+
+    _mtPrev[router.id] = {
+      ifaces: Object.fromEntries(interfaces.map((i) => [i.name, i])),
+      time: now,
+    };
+
+    return {
+      id: router.id,
+      name: router.name,
+      host: router.host,
+      resource: resources[0] || {},
+      interfaces: interfaces.map((i) => ({ ...i, ...rates[i.name] })),
+      connectionCount: parseInt(connections[0]?.ret || connections.length || 0),
+      l2tpClients,      // tuneli gdje je ovaj ruter CLIENT
+      pppActive: pppActive.filter(s => s.service === 'l2tp' || !s.service), // aktivne L2TP sesije (server strana)
+      timestamp: now,
+    };
+  } finally {
+    api.close();
+  }
+}
+
+app.get("/api/mikrotik", authenticate, async (req, res) => {
+  const results = await Promise.allSettled(
+    MIKROTIK_ROUTERS.map((r) => queryMikrotik(r)),
+  );
+  const data = results.map((r, i) =>
+    r.status === "fulfilled"
+      ? r.value
+      : {
+          id: MIKROTIK_ROUTERS[i].id,
+          name: MIKROTIK_ROUTERS[i].name,
+          _error: true,
+          details: r.reason.message,
+        },
+  );
+  res.json(data);
 });
 
 app.get("/api/health", (_req, res) =>

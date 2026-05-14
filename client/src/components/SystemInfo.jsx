@@ -28,12 +28,12 @@ export default function SystemInfo({ system, uptime, load }) {
   ];
 
   return (
-    <div className="bg-[#111827] rounded-xl border border-slate-700/50 px-4 py-3 flex flex-wrap gap-x-6 gap-y-2">
+    <div className="bg-[#111827] rounded-xl border border-slate-700/50 px-4 py-3 grid grid-cols-2 sm:flex sm:flex-wrap gap-x-6 gap-y-2">
       {items.map(({ icon, label, value, mono }) => (
-        <div key={label} className="flex items-center gap-2">
+        <div key={label} className="flex items-center gap-1.5 min-w-0">
           {icon}
-          <span className="text-xs text-slate-500">{label}:</span>
-          <span className={`text-xs font-medium text-slate-200 ${mono ? 'font-mono' : ''}`}>
+          <span className="text-xs text-slate-500 shrink-0">{label}:</span>
+          <span className={`text-xs font-medium text-slate-200 truncate ${mono ? 'font-mono' : ''}`}>
             {value}
           </span>
         </div>

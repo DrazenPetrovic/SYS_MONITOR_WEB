@@ -28,3 +28,6 @@ export const fetchMetrics = () =>
 
 export const fetchMysql = () =>
   api.get('/mysql').then(r => r.data);
+
+export const fetchMikrotik = () =>
+  api.get('/mikrotik').then(r => r.data);
