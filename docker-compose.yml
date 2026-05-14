@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  sys-monitor:
+    build: .
+    ports:
+      - "80:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - GLANCES_HOST=http://94.130.111.127:61208
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
