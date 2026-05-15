@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SYS Monitor</string>
+    <style name="Theme.SysMonitor" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">#0a0e1a</item>
+        <item name="android:statusBarColor">#0d1424</item>
+        <item name="android:navigationBarColor">#0a0e1a</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
