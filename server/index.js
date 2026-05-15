@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -8,12 +9,11 @@ const { RouterOSAPI } = require("node-routeros");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const GLANCES_HOST = process.env.GLANCES_HOST || "http://94.130.111.127:61208";
-const JWT_SECRET = "sys-monitor-jwt-xK9p2024";
+const GLANCES_HOST = process.env.GLANCES_HOST;
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Hard-coded credentials — replace in future with DB
 const USERS = {
-  admin: "monitor2024",
+  admin: process.env.ADMIN_PASSWORD,
 };
 
 app.use(
@@ -80,10 +80,10 @@ app.get("/api/metrics", authenticate, async (req, res) => {
 
 // MySQL connection pool — configure via env vars
 const mysqlPool = mysql.createPool({
-  host: process.env.MYSQL_HOST || "94.130.111.127",
+  host: process.env.MYSQL_HOST,
   port: parseInt(process.env.MYSQL_PORT || "3306"),
-  user: process.env.MYSQL_USER || "monitor",
-  password: process.env.MYSQL_PASS || "TeletabisI!123",
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASS,
   database: "information_schema",
   connectionLimit: 3,
   connectTimeout: 5000,
@@ -144,17 +144,17 @@ const MIKROTIK_ROUTERS = [
   {
     id: "router1",
     name: process.env.MIKROTIK1_NAME || "Router 1",
-    host: process.env.MIKROTIK1_HOST || "karpas-proizvodnja.ddns.net",
-    user: process.env.MIKROTIK1_USER || "monitor",
-    password: process.env.MIKROTIK1_PASS || "TeletabisI!123",
+    host: process.env.MIKROTIK1_HOST,
+    user: process.env.MIKROTIK1_USER,
+    password: process.env.MIKROTIK1_PASS,
     port: parseInt(process.env.MIKROTIK1_PORT || "8728"),
   },
   {
     id: "router2",
     name: process.env.MIKROTIK2_NAME || "Router 2",
-    host: process.env.MIKROTIK2_HOST || "karpasambalaze.no-ip.biz",
-    user: process.env.MIKROTIK2_USER || "monitor",
-    password: process.env.MIKROTIK2_PASS || "TeletabisI!123",
+    host: process.env.MIKROTIK2_HOST,
+    user: process.env.MIKROTIK2_USER,
+    password: process.env.MIKROTIK2_PASS,
     port: parseInt(process.env.MIKROTIK2_PORT || "8728"),
   },
 ];
