@@ -1,13 +1,22 @@
 {
   "name": "sys-monitor-web",
   "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm run dev",
-    "build": "cd client && npm run build",
-    "start": "cd server && npm start",
-    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+    "install:all": "npm install",
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "pm2:start": "npm run build && pm2 start ecosystem.config.js --env production",
+    "pm2:restart": "pm2 reload ecosystem.config.js --env production",
+    "pm2:stop": "pm2 delete sys-monitor-web",
+    "pm2:logs": "pm2 logs sys-monitor-web"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

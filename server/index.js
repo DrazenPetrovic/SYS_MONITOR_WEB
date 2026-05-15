@@ -8,9 +8,22 @@ const mysql = require("mysql2/promise");
 const { RouterOSAPI } = require("node-routeros");
 
 const app = express();
-const PORT = process.env.PORT || 3001;
-const GLANCES_HOST = process.env.GLANCES_HOST;
+const PORT = process.env.PORT || 3010;
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// Glances serveri — konfigurišu se u .env kao GLANCES1_*, GLANCES2_*, itd.
+const GLANCES_SERVERS = [];
+for (let i = 1; ; i++) {
+  const host = process.env[`GLANCES${i}_HOST`];
+  if (!host) break;
+  GLANCES_SERVERS.push({
+    id: `server${i}`,
+    name: process.env[`GLANCES${i}_NAME`] || `Server ${i}`,
+    host,
+    apiVersion: process.env[`GLANCES${i}_API_VERSION`] || "3",
+    mysqlId: process.env[`GLANCES${i}_MYSQL`] || null,
+  });
+}
 
 const USERS = {
   admin: process.env.ADMIN_PASSWORD,
@@ -47,7 +60,15 @@ app.post("/api/login", (req, res) => {
   res.status(401).json({ error: "Invalid credentials" });
 });
 
+app.get("/api/servers", authenticate, (_req, res) => {
+  res.json(GLANCES_SERVERS.map(({ id, name }) => ({ id, name })));
+});
+
 app.get("/api/metrics", authenticate, async (req, res) => {
+  const serverId = req.query.server || GLANCES_SERVERS[0]?.id;
+  const server = GLANCES_SERVERS.find((s) => s.id === serverId);
+  if (!server) return res.status(404).json({ error: "Server not found" });
+
   const endpoints = [
     "cpu",
     "mem",
@@ -63,7 +84,9 @@ app.get("/api/metrics", authenticate, async (req, res) => {
   try {
     const results = await Promise.allSettled(
       endpoints.map((ep) =>
-        axios.get(`${GLANCES_HOST}/api/2/${ep}`, { timeout: 5000 }),
+        axios.get(`${server.host}/api/${server.apiVersion}/${ep}`, {
+          timeout: 5000,
+        }),
       ),
     );
     const data = {};
@@ -78,19 +101,79 @@ app.get("/api/metrics", authenticate, async (req, res) => {
   }
 });
 
-// MySQL connection pool — configure via env vars
-const mysqlPool = mysql.createPool({
-  host: process.env.MYSQL_HOST,
-  port: parseInt(process.env.MYSQL_PORT || "3306"),
-  user: process.env.MYSQL_USER,
-  password: process.env.MYSQL_PASS,
-  database: "information_schema",
-  connectionLimit: 3,
-  connectTimeout: 5000,
-  waitForConnections: true,
-});
+// MySQL serveri — MYSQL1_*, MYSQL2_*, itd. (ili legacy MYSQL_*)
+const MYSQL_TARGETS = [];
+for (let i = 1; ; i++) {
+  const host = process.env[`MYSQL${i}_HOST`];
+  if (!host) break;
+  MYSQL_TARGETS.push({
+    id: `mysql${i}`,
+    name: process.env[`MYSQL${i}_NAME`] || `MySQL ${i}`,
+    host,
+    port: parseInt(process.env[`MYSQL${i}_PORT`] || "3306"),
+    user: process.env[`MYSQL${i}_USER`],
+    password: process.env[`MYSQL${i}_PASS`],
+    database: process.env[`MYSQL${i}_DB`] || "information_schema",
+  });
+}
+
+if (MYSQL_TARGETS.length === 0 && process.env.MYSQL_HOST) {
+  MYSQL_TARGETS.push({
+    id: "mysql1",
+    name: "MySQL 1",
+    host: process.env.MYSQL_HOST,
+    port: parseInt(process.env.MYSQL_PORT || "3306"),
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASS,
+    database: process.env.MYSQL_DB || "information_schema",
+  });
+}
+
+const mysqlPools = new Map();
+
+function getMysqlPool(target) {
+  if (!mysqlPools.has(target.id)) {
+    mysqlPools.set(
+      target.id,
+      mysql.createPool({
+        host: target.host,
+        port: target.port,
+        user: target.user,
+        password: target.password,
+        database: target.database,
+        connectionLimit: 3,
+        connectTimeout: 5000,
+        waitForConnections: true,
+      }),
+    );
+  }
+  return mysqlPools.get(target.id);
+}
+
+function resolveMysqlTarget(requestedServerId) {
+  if (!requestedServerId) return MYSQL_TARGETS[0] || null;
+
+  const direct = MYSQL_TARGETS.find((t) => t.id === requestedServerId);
+  if (direct) return direct;
+
+  const glancesServer = GLANCES_SERVERS.find((s) => s.id === requestedServerId);
+  if (!glancesServer) return null;
+
+  if (glancesServer.mysqlId) {
+    return MYSQL_TARGETS.find((t) => t.id === glancesServer.mysqlId) || null;
+  }
+
+  return null;
+}
 
 app.get("/api/mysql", authenticate, async (req, res) => {
+  const requestedServerId = req.query.server;
+  const target = resolveMysqlTarget(requestedServerId);
+  if (!target) {
+    return res.status(503).json({ error: "No MySQL target configured" });
+  }
+
+  const mysqlPool = getMysqlPool(target);
   const statusVars = [
     "Threads_connected",
     "Threads_running",
@@ -129,6 +212,11 @@ app.get("/api/mysql", authenticate, async (req, res) => {
     const toMap = (rows) =>
       Object.fromEntries(rows.map((r) => [r.Variable_name, r.Value]));
     res.json({
+      target: {
+        id: target.id,
+        name: target.name,
+        host: target.host,
+      },
       status: toMap(status),
       variables: toMap(variables),
       processlist,
@@ -173,13 +261,14 @@ async function queryMikrotik(router) {
 
   await api.connect();
   try {
-    const [resources, interfaces, connections, l2tpClients, pppActive] = await Promise.all([
-      api.write("/system/resource/print"),
-      api.write("/interface/print"),
-      api.write("/ip/firewall/connection/print", ["=count-only="]),
-      api.write("/interface/l2tp-client/print").catch(() => []),
-      api.write("/ppp/active/print").catch(() => []),
-    ]);
+    const [resources, interfaces, connections, l2tpClients, pppActive] =
+      await Promise.all([
+        api.write("/system/resource/print"),
+        api.write("/interface/print"),
+        api.write("/ip/firewall/connection/print", ["=count-only="]),
+        api.write("/interface/l2tp-client/print").catch(() => []),
+        api.write("/ppp/active/print").catch(() => []),
+      ]);
 
     const now = Date.now();
     const prev = _mtPrev[router.id];
@@ -218,8 +307,8 @@ async function queryMikrotik(router) {
       resource: resources[0] || {},
       interfaces: interfaces.map((i) => ({ ...i, ...rates[i.name] })),
       connectionCount: parseInt(connections[0]?.ret || connections.length || 0),
-      l2tpClients,      // tuneli gdje je ovaj ruter CLIENT
-      pppActive: pppActive.filter(s => s.service === 'l2tp' || !s.service), // aktivne L2TP sesije (server strana)
+      l2tpClients, // tuneli gdje je ovaj ruter CLIENT
+      pppActive: pppActive.filter((s) => s.service === "l2tp" || !s.service), // aktivne L2TP sesije (server strana)
       timestamp: now,
     };
   } finally {
@@ -245,7 +334,10 @@ app.get("/api/mikrotik", authenticate, async (req, res) => {
 });
 
 app.get("/api/health", (_req, res) =>
-  res.json({ status: "ok", glances: GLANCES_HOST }),
+  res.json({
+    status: "ok",
+    servers: GLANCES_SERVERS.map(({ id, name, host }) => ({ id, name, host })),
+  }),
 );
 
 if (process.env.NODE_ENV === "production") {
