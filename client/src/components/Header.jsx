@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Server, LogOut } from "lucide-react";
 
-export default function Header({ username, connected, serverHealth = [], onLogout }) {
+export default function Header({
+  username,
+  connected,
+  serverHealth = [],
+  onLogout,
+}) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
