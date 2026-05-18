@@ -4,6 +4,7 @@ import {
   fetchMysql,
   fetchMikrotik,
   fetchServers,
+  fetchServerStatus,
 } from "../api/glances";
 import { useAuth } from "../context/AuthContext";
 import Header from "../components/Header";
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const { username, logout } = useAuth();
   const [view, setView] = useState("home");
   const [servers, setServers] = useState([]);
+  const [serverStatus, setServerStatus] = useState({});
   const [activeServer, setActiveServer] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [mysqlData, setMysqlData] = useState(null);
@@ -35,6 +37,8 @@ export default function Dashboard() {
   const [errorMsg, setErrorMsg] = useState("");
   const history = useRef({ cpu: [], netRx: [], netTx: [] });
   const mysqlPrev = useRef({ questions: null, time: null, qpsHistory: [] });
+  const metricsInFlight = useRef(false);
+  const mysqlInFlight = useRef(false);
 
   useEffect(() => {
     fetchServers()
@@ -42,6 +46,35 @@ export default function Dashboard() {
         setServers(list);
       })
       .catch(() => {});
+
+    fetchServerStatus()
+      .then((statuses) => {
+        const statusMap = {};
+        statuses.forEach((s) => {
+          statusMap[s.id] = {
+            glancesOk: s.glancesOk,
+            mysqlStatus: s.mysqlStatus,
+          };
+        });
+        setServerStatus(statusMap);
+      })
+      .catch(() => {});
+
+    const id = setInterval(() => {
+      fetchServerStatus()
+        .then((statuses) => {
+          const statusMap = {};
+          statuses.forEach((s) => {
+            statusMap[s.id] = {
+              glancesOk: s.glancesOk,
+              mysqlStatus: s.mysqlStatus,
+            };
+          });
+          setServerStatus(statusMap);
+        })
+        .catch(() => {});
+    }, 10000);
+    return () => clearInterval(id);
   }, []);
 
   const serverButtons = Array.from({ length: 3 }, (_unused, idx) => {
@@ -54,13 +87,34 @@ export default function Dashboard() {
     };
   });
 
+  const serverHealth = serverButtons.map((server) => ({
+    id: server.id,
+    name: server.name,
+    configured: server.configured,
+    glancesOk: serverStatus[server.id]?.glancesOk ?? null,
+    mysqlStatus: serverStatus[server.id]?.mysqlStatus ?? null,
+  }));
+
+  const getServerIpLabel = (server) => {
+    if (!server?.host) return "";
+    try {
+      return new URL(server.host).hostname;
+    } catch {
+      return server.host.replace(/^https?:\/\//, "").replace(/:\d+$/, "");
+    }
+  };
+
   useEffect(() => {
     history.current = { cpu: [], netRx: [], netTx: [] };
+    mysqlPrev.current = { questions: null, time: null, qpsHistory: [] };
     setMetrics(null);
+    setMysqlData(null);
   }, [activeServer]);
 
   const fetchData = useCallback(async () => {
     if (!activeServer || view !== "server") return;
+    if (metricsInFlight.current) return;
+    metricsInFlight.current = true;
     try {
       const data = await fetchMetrics(activeServer);
       const h = history.current;
@@ -95,12 +149,18 @@ export default function Dashboard() {
       setErrorMsg("");
     } catch (err) {
       setConnected(false);
-      setErrorMsg(err.message || "Connection failed");
+      const msg =
+        err.response?.data?.error || err.message || "Connection failed";
+      setErrorMsg(msg);
+    } finally {
+      metricsInFlight.current = false;
     }
   }, [activeServer, view]);
 
   const fetchMysqlData = useCallback(async () => {
     if (!activeServer || view !== "server") return;
+    if (mysqlInFlight.current) return;
+    mysqlInFlight.current = true;
     try {
       const data = await fetchMysql(activeServer);
       const questions = parseInt(data.status?.Questions || 0);
@@ -121,11 +181,14 @@ export default function Dashboard() {
       ];
 
       setMysqlData({ ...data, qps, qpsHistory: [...p.qpsHistory] });
-    } catch {
+    } catch (err) {
       // MySQL not configured or down — show error state silently
-      setMysqlData((prev) =>
-        prev ? { ...prev, _error: true } : { _error: true },
-      );
+      setMysqlData({
+        _error: true,
+        details: err.response?.data?.details || err.response?.data?.error,
+      });
+    } finally {
+      mysqlInFlight.current = false;
     }
   }, [activeServer, view]);
 
@@ -173,39 +236,75 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0a0e1a]">
-      <Header username={username} connected={connected} onLogout={logout} />
+      <Header
+        username={username}
+        connected={connected}
+        serverHealth={serverHealth}
+        onLogout={logout}
+      />
 
       <main className="p-3 md:p-4 lg:p-5 max-w-[1600px] mx-auto">
         {view === "home" && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 md:p-5">
-              <h1 className="text-xl md:text-2xl font-semibold text-white">
-                Glavna strana
-              </h1>
-              <p className="text-slate-300 text-sm mt-1">
-                MikroTik pregled i brzi ulaz na servere.
-              </p>
-            </div>
-
             <MikrotikCard data={mikrotikData} showAll />
 
             <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 md:p-5">
               <h2 className="text-white font-medium mb-3">Odaberi server</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {serverButtons.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => openServer(s)}
-                    className="w-full rounded-lg px-4 py-4 bg-blue-600 text-white text-base font-semibold hover:bg-blue-500 active:scale-[0.99] transition-all text-left"
-                  >
-                    <div>{s.name}</div>
-                    <div className="text-xs text-blue-100 mt-1">
-                      {s.configured
-                        ? "Otvori detalje"
-                        : "Nije jos konfigurisan"}
-                    </div>
-                  </button>
-                ))}
+                {serverButtons.map((s) => {
+                  const status = serverStatus[s.id];
+                  const mysqlBadgeClass =
+                    status?.mysqlStatus === "ok"
+                      ? "bg-green-400"
+                      : status?.mysqlStatus === "not_configured"
+                        ? "bg-slate-400"
+                        : "bg-red-400";
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => openServer(s)}
+                      className="w-full rounded-lg px-4 py-4 bg-blue-600 text-white text-base font-semibold hover:bg-blue-500 active:scale-[0.99] transition-all text-left"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate">{s.name}</div>
+                          {s.configured && s.host && (
+                            <div className="text-xs text-blue-100/80 mt-0.5 truncate font-normal">
+                              {getServerIpLabel(s)}
+                            </div>
+                          )}
+                        </div>
+                        {s.configured && status && (
+                          <div className="flex gap-1">
+                            <div
+                              className={`w-2 h-2 rounded-full ${
+                                status.glancesOk ? "bg-green-400" : "bg-red-400"
+                              }`}
+                              title={
+                                status.glancesOk ? "Glances OK" : "Glances Down"
+                              }
+                            />
+                            <div
+                              className={`w-2 h-2 rounded-full ${mysqlBadgeClass}`}
+                              title={
+                                status.mysqlStatus === "ok"
+                                  ? "MySQL OK"
+                                  : status.mysqlStatus === "not_configured"
+                                    ? "MySQL not configured"
+                                    : "MySQL failed"
+                              }
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs text-blue-100 mt-1">
+                        {s.configured
+                          ? "Otvori detalje"
+                          : "Nije jos konfigurisan"}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -241,13 +340,18 @@ export default function Dashboard() {
                   <button
                     key={`${s.id}-switch`}
                     onClick={() => openServer(s)}
-                    className={`px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap text-left leading-tight ${
                       activeServer === s.id && s.configured
                         ? "bg-blue-600 text-white"
                         : "bg-slate-700 text-slate-300"
                     }`}
                   >
-                    {s.name}
+                    <div>{s.name}</div>
+                    {s.configured && s.host && (
+                      <div className="text-[11px] font-normal opacity-80 mt-0.5">
+                        {getServerIpLabel(s)}
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>

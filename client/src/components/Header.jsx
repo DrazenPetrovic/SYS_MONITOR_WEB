@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Server, LogOut, Wifi, WifiOff } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Server, LogOut } from "lucide-react";
 
-export default function Header({ username, connected, onLogout }) {
+export default function Header({ username, connected, serverHealth = [], onLogout }) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -18,22 +18,37 @@ export default function Header({ username, connected, onLogout }) {
           </div>
           <div className="leading-tight">
             <div className="text-sm font-bold text-white">SYS Monitor</div>
-            <div className="text-xs text-slate-500 font-mono hidden sm:block">94.130.111.127</div>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 md:gap-4">
-          {/* Live indicator — uvijek vidljiv */}
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${connected ? 'text-green-400' : 'text-red-400'}`}>
-            {connected
-              ? <><div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /><span>Live</span></>
-              : <><WifiOff size={13} /><span>Offline</span></>
-            }
+          <div className="flex items-center gap-3 sm:gap-4">
+            {serverHealth.slice(0, 3).map((server) => {
+              const mysqlDotClass =
+                server.mysqlStatus === "ok"
+                  ? "bg-green-400"
+                  : server.mysqlStatus === "not_configured"
+                    ? "bg-slate-500"
+                    : "bg-red-400";
+
+              return (
+                <div key={server.id} className="flex items-center gap-1.5">
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full ${server.glancesOk ? "bg-green-400" : "bg-red-400"}`}
+                    title={`${server.name} Glances`}
+                  />
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full ${mysqlDotClass}`}
+                    title={`${server.name} MySQL`}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {/* Sat — samo na sm+ */}
           <span className="text-xs font-mono text-slate-400 tabular-nums hidden sm:inline">
-            {now.toLocaleTimeString()}
+            {now.toLocaleTimeString("en-GB", { hour12: false })}
           </span>
 
           {/* Logout — ikona na mobitelu, tekst na sm+ */}

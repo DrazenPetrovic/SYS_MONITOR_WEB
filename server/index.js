@@ -61,13 +61,57 @@ app.post("/api/login", (req, res) => {
 });
 
 app.get("/api/servers", authenticate, (_req, res) => {
-  res.json(GLANCES_SERVERS.map(({ id, name }) => ({ id, name })));
+  res.json(GLANCES_SERVERS.map(({ id, name, host }) => ({ id, name, host })));
+});
+
+app.get("/api/server-status", authenticate, async (_req, res) => {
+  const statuses = await Promise.all(
+    GLANCES_SERVERS.map(async (server) => {
+      const glancesProbeEndpoints = ["cpu", "system"];
+      const glancesResults = await Promise.allSettled(
+        glancesProbeEndpoints.map((ep) =>
+          axios.get(`${server.host}/api/${server.apiVersion}/${ep}`, {
+            timeout: 5000,
+          }),
+        ),
+      );
+      const glancesOk = glancesResults.some(
+        (result) => result.status === "fulfilled",
+      );
+
+      let mysqlStatus = "not_configured";
+      if (server.mysqlId) {
+        const mysqlTarget =
+          MYSQL_TARGETS.find((t) => t.id === server.mysqlId) || null;
+        if (mysqlTarget) {
+          try {
+            const pool = getMysqlPool(mysqlTarget);
+            const [rows] = await pool.query("SELECT 1");
+            mysqlStatus = rows.length > 0 ? "ok" : "failed";
+          } catch {
+            mysqlStatus = "failed";
+          }
+        } else {
+          mysqlStatus = "failed";
+        }
+      }
+
+      return {
+        id: server.id,
+        name: server.name,
+        glancesOk,
+        mysqlStatus,
+      };
+    }),
+  );
+  res.json(statuses);
 });
 
 app.get("/api/metrics", authenticate, async (req, res) => {
   const serverId = req.query.server || GLANCES_SERVERS[0]?.id;
   const server = GLANCES_SERVERS.find((s) => s.id === serverId);
   if (!server) return res.status(404).json({ error: "Server not found" });
+  const requestTimeout = parseInt(process.env.GLANCES_TIMEOUT_MS || "10000");
 
   const endpoints = [
     "cpu",
@@ -85,10 +129,19 @@ app.get("/api/metrics", authenticate, async (req, res) => {
     const results = await Promise.allSettled(
       endpoints.map((ep) =>
         axios.get(`${server.host}/api/${server.apiVersion}/${ep}`, {
-          timeout: 5000,
+          timeout: requestTimeout,
         }),
       ),
     );
+
+    const successCount = results.filter((r) => r.status === "fulfilled").length;
+    if (successCount === 0) {
+      return res.status(503).json({
+        error: "Glances server unreachable",
+        server: { id: server.id, name: server.name, host: server.host },
+      });
+    }
+
     const data = {};
     endpoints.forEach((ep, i) => {
       data[ep] =

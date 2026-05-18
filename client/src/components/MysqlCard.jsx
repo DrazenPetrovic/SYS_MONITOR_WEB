@@ -1,6 +1,6 @@
-import React from 'react';
-import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
-import { Database, AlertCircle } from 'lucide-react';
+import React from "react";
+import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis } from "recharts";
+import { Database, AlertCircle } from "lucide-react";
 
 function n(val, fallback = 0) {
   const v = parseInt(val);
@@ -16,9 +16,9 @@ function fmtBytes(b) {
 }
 
 function statusColor(pct) {
-  if (pct >= 90) return '#ef4444';
-  if (pct >= 70) return '#f59e0b';
-  return '#22c55e';
+  if (pct >= 90) return "#ef4444";
+  if (pct >= 70) return "#f59e0b";
+  return "#22c55e";
 }
 
 function StatBar({ label, value, max, color }) {
@@ -29,11 +29,15 @@ function StatBar({ label, value, max, color }) {
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-slate-400">{label}</span>
         <span className="text-xs font-mono font-semibold" style={{ color: c }}>
-          {value} / {max} <span className="text-slate-500">({pct.toFixed(1)}%)</span>
+          {value} / {max}{" "}
+          <span className="text-slate-500">({pct.toFixed(1)}%)</span>
         </span>
       </div>
       <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: c }} />
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, backgroundColor: c }}
+        />
       </div>
     </div>
   );
@@ -53,28 +57,39 @@ export default function MysqlCard({ data }) {
         </div>
         <div className="flex items-center gap-2 text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg p-3">
           <AlertCircle size={13} className="shrink-0" />
-          <span>MySQL nije dostupan. Provjeri MYSQL_HOST, MYSQL_USER i MYSQL_PASS u server konfiguraciji.</span>
+          <span>
+            MySQL nije dostupan.
+            {data.details
+              ? ` (${data.details})`
+              : " Provjeri MYSQL_HOST, MYSQL_USER i MYSQL_PASS u server konfiguraciji."}
+          </span>
         </div>
       </div>
     );
   }
 
-  const { status = {}, variables = {}, processlist = [], qps = 0, qpsHistory = [] } = data;
+  const {
+    status = {},
+    variables = {},
+    processlist = [],
+    qps = 0,
+    qpsHistory = [],
+  } = data;
 
   const threadsConnected = n(status.Threads_connected);
-  const threadsRunning   = n(status.Threads_running);
-  const maxConnections   = n(variables.max_connections, 100);
-  const slowQueries      = n(status.Slow_queries);
-  const aborted          = n(status.Aborted_connects);
-  const tableLocks       = n(status.Table_locks_waited);
-  const uptime           = n(status.Uptime);
+  const threadsRunning = n(status.Threads_running);
+  const maxConnections = n(variables.max_connections, 100);
+  const slowQueries = n(status.Slow_queries);
+  const aborted = n(status.Aborted_connects);
+  const tableLocks = n(status.Table_locks_waited);
+  const uptime = n(status.Uptime);
 
-  const bpReadReq  = n(status.Innodb_buffer_pool_read_requests);
-  const bpReads    = n(status.Innodb_buffer_pool_reads);
-  const bpHitRate  = bpReadReq > 0 ? ((1 - bpReads / bpReadReq) * 100) : 100;
-  const bpTotal    = n(status.Innodb_buffer_pool_pages_total);
-  const bpFree     = n(status.Innodb_buffer_pool_pages_free);
-  const bpUsedPct  = bpTotal > 0 ? ((bpTotal - bpFree) / bpTotal * 100) : 0;
+  const bpReadReq = n(status.Innodb_buffer_pool_read_requests);
+  const bpReads = n(status.Innodb_buffer_pool_reads);
+  const bpHitRate = bpReadReq > 0 ? (1 - bpReads / bpReadReq) * 100 : 100;
+  const bpTotal = n(status.Innodb_buffer_pool_pages_total);
+  const bpFree = n(status.Innodb_buffer_pool_pages_free);
+  const bpUsedPct = bpTotal > 0 ? ((bpTotal - bpFree) / bpTotal) * 100 : 0;
 
   const comSelect = n(status.Com_select);
   const comInsert = n(status.Com_insert);
@@ -99,36 +114,70 @@ export default function MysqlCard({ data }) {
           <span className="text-xs text-slate-500">{variables.version}</span>
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-400">
-          <span>uptime <span className="text-slate-200 font-mono">{uptimeStr}</span></span>
+          <span>
+            uptime <span className="text-slate-200 font-mono">{uptimeStr}</span>
+          </span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         {/* Left: connections + bars */}
         <div className="space-y-3">
-          <StatBar label="Connections" value={threadsConnected} max={maxConnections} />
-          <StatBar label="InnoDB Buffer Pool Used" value={bpUsedPct.toFixed(1) * 1} max={100} color="#3b82f6" />
+          <StatBar
+            label="Connections"
+            value={threadsConnected}
+            max={maxConnections}
+          />
+          <StatBar
+            label="InnoDB Buffer Pool Used"
+            value={bpUsedPct.toFixed(1) * 1}
+            max={100}
+            color="#3b82f6"
+          />
           <StatBar
             label="Buffer Pool Hit Rate"
             value={bpHitRate.toFixed(2) * 1}
             max={100}
-            color={bpHitRate >= 99 ? '#22c55e' : bpHitRate >= 95 ? '#f59e0b' : '#ef4444'}
+            color={
+              bpHitRate >= 99
+                ? "#22c55e"
+                : bpHitRate >= 95
+                  ? "#f59e0b"
+                  : "#ef4444"
+            }
           />
         </div>
 
         {/* Right: stat boxes */}
         <div className="grid grid-cols-2 gap-2">
           {[
-            { label: 'Threads Running', value: threadsRunning, alert: threadsRunning > 10 },
-            { label: 'QPS', value: qps.toFixed(1), mono: true },
-            { label: 'Slow Queries', value: slowQueries, alert: slowQueries > 0 },
-            { label: 'Lock Waits', value: tableLocks, alert: tableLocks > 0 },
-            { label: 'Aborted Conn.', value: aborted, alert: aborted > 0 },
-            { label: 'Buffer Pool', value: fmtBytes(variables.innodb_buffer_pool_size), mono: true },
+            {
+              label: "Threads Running",
+              value: threadsRunning,
+              alert: threadsRunning > 10,
+            },
+            { label: "QPS", value: qps.toFixed(1), mono: true },
+            {
+              label: "Slow Queries",
+              value: slowQueries,
+              alert: slowQueries > 0,
+            },
+            { label: "Lock Waits", value: tableLocks, alert: tableLocks > 0 },
+            { label: "Aborted Conn.", value: aborted, alert: aborted > 0 },
+            {
+              label: "Buffer Pool",
+              value: fmtBytes(variables.innodb_buffer_pool_size),
+              mono: true,
+            },
           ].map(({ label, value, alert, mono }) => (
-            <div key={label} className="bg-slate-800/60 rounded-lg p-2.5 text-center">
+            <div
+              key={label}
+              className="bg-slate-800/60 rounded-lg p-2.5 text-center"
+            >
               <div className="text-xs text-slate-500 mb-0.5">{label}</div>
-              <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''} ${alert ? 'text-yellow-400' : 'text-slate-200'}`}>
+              <div
+                className={`text-sm font-semibold ${mono ? "font-mono" : ""} ${alert ? "text-yellow-400" : "text-slate-200"}`}
+              >
                 {value}
               </div>
             </div>
@@ -142,7 +191,10 @@ export default function MysqlCard({ data }) {
           <div className="text-xs text-slate-500 mb-1">Queries / sec</div>
           <div className="h-16">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={qpsHistory} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+              <AreaChart
+                data={qpsHistory}
+                margin={{ top: 2, right: 0, left: 0, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="gQps" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
@@ -151,12 +203,26 @@ export default function MysqlCard({ data }) {
                 </defs>
                 <YAxis hide />
                 <Tooltip
-                  contentStyle={{ background: '#1e293b', border: 'none', borderRadius: '8px', fontSize: '11px', padding: '4px 8px' }}
-                  formatter={v => [`${v} q/s`, 'QPS']}
-                  labelStyle={{ color: '#94a3b8' }}
-                  itemStyle={{ color: '#4ade80' }}
+                  contentStyle={{
+                    background: "#1e293b",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "11px",
+                    padding: "4px 8px",
+                  }}
+                  formatter={(v) => [`${v} q/s`, "QPS"]}
+                  labelStyle={{ color: "#94a3b8" }}
+                  itemStyle={{ color: "#4ade80" }}
                 />
-                <Area type="monotone" dataKey="v" stroke="#22c55e" strokeWidth={1.5} fill="url(#gQps)" dot={false} isAnimationActive={false} />
+                <Area
+                  type="monotone"
+                  dataKey="v"
+                  stroke="#22c55e"
+                  strokeWidth={1.5}
+                  fill="url(#gQps)"
+                  dot={false}
+                  isAnimationActive={false}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -166,14 +232,21 @@ export default function MysqlCard({ data }) {
       {/* Query type breakdown */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         {[
-          { label: 'SELECT', value: comSelect, color: 'text-blue-400' },
-          { label: 'INSERT', value: comInsert, color: 'text-green-400' },
-          { label: 'UPDATE', value: comUpdate, color: 'text-yellow-400' },
-          { label: 'DELETE', value: comDelete, color: 'text-red-400' },
+          { label: "SELECT", value: comSelect, color: "text-blue-400" },
+          { label: "INSERT", value: comInsert, color: "text-green-400" },
+          { label: "UPDATE", value: comUpdate, color: "text-yellow-400" },
+          { label: "DELETE", value: comDelete, color: "text-red-400" },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-slate-800/60 rounded-lg py-2 text-center">
-            <div className={`text-xs font-semibold ${color} mb-0.5`}>{label}</div>
-            <div className="text-xs font-mono text-slate-300">{value.toLocaleString()}</div>
+          <div
+            key={label}
+            className="bg-slate-800/60 rounded-lg py-2 text-center"
+          >
+            <div className={`text-xs font-semibold ${color} mb-0.5`}>
+              {label}
+            </div>
+            <div className="text-xs font-mono text-slate-300">
+              {value.toLocaleString()}
+            </div>
           </div>
         ))}
       </div>
@@ -181,7 +254,9 @@ export default function MysqlCard({ data }) {
       {/* Active processlist */}
       {processlist.length > 0 && (
         <div>
-          <div className="text-xs text-slate-500 mb-2">Active Queries ({processlist.length})</div>
+          <div className="text-xs text-slate-500 mb-2">
+            Active Queries ({processlist.length})
+          </div>
           <div className="overflow-x-auto -mx-4 px-4">
             <table className="w-full text-xs min-w-[420px]">
               <thead>
@@ -194,16 +269,20 @@ export default function MysqlCard({ data }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/25">
-                {processlist.map(p => (
+                {processlist.map((p) => (
                   <tr key={p.ID} className="hover:bg-slate-800/30">
-                    <td className="py-1.5 text-slate-300 font-mono">{p.USER}</td>
-                    <td className="py-1.5 text-slate-400">{p.DB || '—'}</td>
+                    <td className="py-1.5 text-slate-300 font-mono">
+                      {p.USER}
+                    </td>
+                    <td className="py-1.5 text-slate-400">{p.DB || "—"}</td>
                     <td className="py-1.5 text-slate-400">{p.COMMAND}</td>
-                    <td className={`py-1.5 text-right font-mono tabular-nums ${p.TIME > 5 ? 'text-yellow-400' : 'text-slate-400'}`}>
+                    <td
+                      className={`py-1.5 text-right font-mono tabular-nums ${p.TIME > 5 ? "text-yellow-400" : "text-slate-400"}`}
+                    >
                       {p.TIME}s
                     </td>
                     <td className="py-1.5 pl-3 text-slate-500 font-mono truncate max-w-[200px]">
-                      {p.INFO || p.STATE || '—'}
+                      {p.INFO || p.STATE || "—"}
                     </td>
                   </tr>
                 ))}

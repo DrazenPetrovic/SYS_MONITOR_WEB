@@ -25,6 +25,12 @@ export const loginUser = (username, password) =>
 
 export const fetchServers = () => api.get("/servers").then((r) => r.data);
 
+export const fetchServerStatus = () =>
+  api
+    .get("/server-status")
+    .then((r) => r.data)
+    .catch(() => []);
+
 export const fetchMetrics = (serverId) =>
   api
     .get(`/metrics${serverId ? `?server=${serverId}` : ""}`)
