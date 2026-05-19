@@ -1,0 +1,24 @@
+
+> sys-monitor-web@1.0.0 dev
+> concurrently "nodemon server.js" "vite"
+
+[0] [33m[nodemon] 3.1.14[39m
+[0] [33m[nodemon] to restart at any time, enter `rs`[39m
+[0] [33m[nodemon] watching path(s): *.*[39m
+[0] [33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[0] [32m[nodemon] starting `node server.js`[39m
+[0] ◇ injected env (34) from .env // tip: ⌘ override existing { override: true }
+[1] [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+[1] 
+[1]   [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m409[22m[2m[0m ms[22m
+[1] 
+[1]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[1] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[0] SYS Monitor running on port 3010
+[1] (node:102556) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/GitHUB/SYS_MONITOR_WEB/postcss.config.js is not specified and it doesn't parse as CommonJS.
+[1] Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+[1] To eliminate this warning, add "type": "module" to D:\GitHUB\SYS_MONITOR_WEB\package.json.
+[1] (Use `node --trace-warnings ...` to show where the warning was created)
+Terminate batch job (Y/N)? [0] ^Cnodemon server.js exited with code 3221225786
+[1] ^Cvite exited with code 3221225786
+

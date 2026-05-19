@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "dev:server": "node server.js",
+    "dev": "concurrently \"nodemon server.js\" \"vite\"",
+    "dev:server": "nodemon server.js",
+    "dev:client": "vite",
     "build": "vite build",
     "start": "NODE_ENV=production node server.js",
     "preview": "vite preview"
