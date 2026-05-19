@@ -5,7 +5,9 @@
       "Bash(npm run *)",
       "Bash(curl -s --connect-timeout 5 http://94.130.111.127:61208/api/3/cpu)",
       "Bash(curl -s --connect-timeout 5 http://94.130.111.127:61208/api/2/cpu)",
-      "Bash(curl -s --connect-timeout 5 http://94.130.111.127:61208/api/1/cpu)"
+      "Bash(curl -s --connect-timeout 5 http://94.130.111.127:61208/api/1/cpu)",
+      "Read(//d/GitHUB/**)",
+      "Read(//d/GitHUB//**)"
     ]
   }
 }

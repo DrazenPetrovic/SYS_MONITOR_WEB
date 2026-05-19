@@ -3,10 +3,13 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/sistem/' : '/',
+  base: command === "build" ? "/sistem/" : "/",
   server: {
     proxy: {
-      "/api": "http://localhost:3010",
+      "/sistem/api": {
+        target: "http://localhost:3010",
+        rewrite: (path) => path.replace(/^\/sistem/, ""),
+      },
     },
   },
 }));

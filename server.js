@@ -1,4 +1,4 @@
-require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -11,7 +11,6 @@ const app = express();
 const PORT = process.env.PORT || 3010;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Glances serveri — konfigurišu se u .env kao GLANCES1_*, GLANCES2_*, itd.
 const GLANCES_SERVERS = [];
 for (let i = 1; ; i++) {
   const host = process.env[`GLANCES${i}_HOST`];
@@ -154,7 +153,6 @@ app.get("/api/metrics", authenticate, async (req, res) => {
   }
 });
 
-// MySQL serveri — MYSQL1_*, MYSQL2_*, itd. (ili legacy MYSQL_*)
 const MYSQL_TARGETS = [];
 for (let i = 1; ; i++) {
   const host = process.env[`MYSQL${i}_HOST`];
@@ -265,11 +263,7 @@ app.get("/api/mysql", authenticate, async (req, res) => {
     const toMap = (rows) =>
       Object.fromEntries(rows.map((r) => [r.Variable_name, r.Value]));
     res.json({
-      target: {
-        id: target.id,
-        name: target.name,
-        host: target.host,
-      },
+      target: { id: target.id, name: target.name, host: target.host },
       status: toMap(status),
       variables: toMap(variables),
       processlist,
@@ -280,7 +274,6 @@ app.get("/api/mysql", authenticate, async (req, res) => {
   }
 });
 
-// MikroTik ruteri — dodaj koliko god treba
 const MIKROTIK_ROUTERS = [
   {
     id: "router1",
@@ -300,7 +293,6 @@ const MIKROTIK_ROUTERS = [
   },
 ];
 
-// Per-router prev data za računanje brzina
 const _mtPrev = {};
 
 async function queryMikrotik(router) {
@@ -360,8 +352,8 @@ async function queryMikrotik(router) {
       resource: resources[0] || {},
       interfaces: interfaces.map((i) => ({ ...i, ...rates[i.name] })),
       connectionCount: parseInt(connections[0]?.ret || connections.length || 0),
-      l2tpClients, // tuneli gdje je ovaj ruter CLIENT
-      pppActive: pppActive.filter((s) => s.service === "l2tp" || !s.service), // aktivne L2TP sesije (server strana)
+      l2tpClients,
+      pppActive: pppActive.filter((s) => s.service === "l2tp" || !s.service),
       timestamp: now,
     };
   } finally {
@@ -394,10 +386,10 @@ app.get("/api/health", (_req, res) =>
 );
 
 if (process.env.NODE_ENV === "production") {
-  app.use('/sistem', express.static(path.join(__dirname, "../client/dist")));
-  app.get('/sistem/*', (_req, res) => {
-    res.sendFile(path.join(__dirname, "../client/dist/index.html"));
+  app.use(express.static(path.join(__dirname, "dist")));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(__dirname, "dist", "index.html"));
   });
 }
 
-app.listen(PORT, () => console.log(`SYS Monitor server on port ${PORT}`));
+app.listen(PORT, () => console.log(`SYS Monitor running on port ${PORT}`));

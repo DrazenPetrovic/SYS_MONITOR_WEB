@@ -19,7 +19,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var loadingView: LinearLayout
     private lateinit var errorView: LinearLayout
 
-    private val serverUrl = "http://157.90.163.195"
+    private val serverUrl = "http://157.90.163.195/sistem/"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
