@@ -16,6 +16,6 @@ RUN cd server && npm install --omit=dev
 COPY server/ ./server/
 COPY --from=builder /app/client/dist ./client/dist
 
-EXPOSE 3001
+EXPOSE 3010
 ENV NODE_ENV=production
 CMD ["node", "server/index.js"]
