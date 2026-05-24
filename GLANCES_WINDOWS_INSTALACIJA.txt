@@ -132,3 +132,5 @@ U browseru monitoring servera otvori:
    http://tvoj-ddns.no-ip.biz:61208/api/4/cpu
 
 Treba vratiti JSON sa CPU podacima.
+
+Saada instaliraj
