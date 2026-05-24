@@ -60,7 +60,11 @@ function RouterPanel({ router }) {
   const freeHdd = parseInt(resource["free-hdd-space"] || 0);
   const hddPct = totalHdd > 0 ? ((totalHdd - freeHdd) / totalHdd) * 100 : 0;
 
-  const visibleIfaces = showAll ? interfaces : interfaces.slice(0, 6);
+  const activeIfaces = interfaces.filter((i) => i.running === "true");
+  const inactiveIfaces = interfaces.filter((i) => i.running !== "true");
+  const visibleIfaces = showAll
+    ? [...activeIfaces, ...inactiveIfaces]
+    : activeIfaces;
 
   return (
     <div>
@@ -254,12 +258,14 @@ function RouterPanel({ router }) {
               {interfaces.length})
             </span>
           </span>
-          {interfaces.length > 6 && (
+          {inactiveIfaces.length > 0 && (
             <button
               onClick={() => setShowAll((v) => !v)}
               className="text-xs text-blue-400 hover:text-blue-300"
             >
-              {showAll ? "Prikaži manje" : `+${interfaces.length - 6} više`}
+              {showAll
+                ? "Sakrij neaktivne"
+                : `+${inactiveIfaces.length} neaktivnih`}
             </button>
           )}
         </div>

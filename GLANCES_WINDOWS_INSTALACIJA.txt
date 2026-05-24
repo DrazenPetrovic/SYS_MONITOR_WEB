@@ -1,0 +1,134 @@
+GLANCES INSTALACIJA NA WINDOWS 10
+==================================
+Datum: Maj 2026
+Verzija: Glances 4.5.4
+
+
+PREDUVJETI
+----------
+- Windows 10 (bilo koja verzija)
+- Administrator pristup
+- Internet konekcija
+
+
+KORAK 1 - INSTALIRAJ PYTHON
+-----------------------------
+1. Idi na https://www.python.org/downloads/
+2. Preuzmi Python (najnovija verzija)
+3. Pokreni installer
+4. OBAVEZNO cekiraj "Add Python to PATH" na prvom ekranu
+5. Klikni "Install Now"
+6. Nakon instalacije otvori PowerShell kao Administrator i provjeri:
+
+   python --version
+
+   Treba ispisati npr: Python 3.14.x
+
+
+KORAK 2 - INSTALIRAJ GLANCES
+------------------------------
+U PowerShell-u (kao Administrator) pokreni:
+
+   python -m pip install glances[web]
+
+Sacekaj da se instalacija zavrsi (moze potrajati par minuta).
+
+
+KORAK 3 - TESTIRAJ DA LI RADI
+-------------------------------
+Pokreni:
+
+   python -m glances -w --port 61208
+
+Treba se ispisati Glances logo i poruka:
+   "Glances Web User Interface started on http://0.0.0.0:61208/"
+
+Otvori browser i idi na: http://localhost:61208
+Ako vidis Glances web interfejs - instalacija je uspjesna.
+
+Zatvori s CTRL+C.
+
+
+KORAK 4 - DOZVOLI PORT U FIREWALL-U
+-------------------------------------
+U PowerShell-u kao Administrator:
+
+   New-NetFirewallRule -DisplayName "Glances Monitor" -Direction Inbound -Protocol TCP -LocalPort 61208 -Action Allow
+
+
+KORAK 5 - POSTAVI PORT FORWARD NA MIKROTIKU
+--------------------------------------------
+Na MikroTiku dodaj NAT pravilo (via Winbox: IP > Firewall > NAT > +):
+
+   Chain:        dstnat
+   Protocol:     tcp
+   Dst. Port:    61208
+   Action:       dst-nat
+   To Addresses: [lokalni IP Windows masine]
+   To Ports:     61208
+
+Lokalni IP Windows masine saznaj sa:
+   ipconfig
+(trazi "IPv4 Address" pod tvojom mrežnom karticom)
+
+Ili putem MikroTik terminala:
+   /ip firewall nat add chain=dstnat protocol=tcp dst-port=61208 action=dst-nat to-addresses=192.168.1.XXX to-ports=61208 comment="Glances Windows"
+
+
+KORAK 6 - PROVJERI PUTANJU PYTHONA
+------------------------------------
+   where.exe python
+
+Zapisi prvu putanju koja se ispise, npr: C:\Python314\python.exe
+Ova putanja ce ti trebati u narednom koraku.
+
+
+KORAK 7 - POSTAVI AUTOMATSKI START (Task Scheduler)
+-----------------------------------------------------
+U PowerShell-u kao Administrator pokreni sve komande redom:
+
+   Unregister-ScheduledTask -TaskName "Glances" -Confirm:$false -ErrorAction SilentlyContinue
+
+   $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"C:\Python314\python.exe -m glances -w --port 61208`""
+
+   NAPOMENA: Zamijeni C:\Python314\python.exe sa putanjom iz Koraka 6!
+
+   $trigger = New-ScheduledTaskTrigger -AtStartup
+   $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+   Register-ScheduledTask -TaskName "Glances" -Action $action -Trigger $trigger -Principal $principal -Description "Glances monitoring server"
+
+Pokreni odmah:
+   Start-ScheduledTask -TaskName "Glances"
+
+Provjeri status (treba pisati "Running"):
+   Get-ScheduledTask -TaskName "Glances" | Select-Object State
+
+
+KORAK 8 - DODAJ U MONITORING APLIKACIJU (.env fajl)
+-----------------------------------------------------
+Otvori .env fajl monitoring aplikacije i dodaj:
+
+   GLANCES5_NAME=Naziv racunara
+   GLANCES5_HOST=http://tvoj-ddns.no-ip.biz:61208
+   GLANCES5_API_VERSION=4
+   GLANCES5_TYPE=computer
+   GLANCES5_LOCATION=NAZIV LOKACIJE
+
+Zamijeni broj 5 sa sljedecim slobodnim brojem u .env fajlu.
+Restartuj monitoring server da primijeni promjene.
+
+
+NAPOMENE
+--------
+- Glances radi samo dok je korisnik prijavljen na Windows
+- Ako se racunar restartuje i korisnik se prijavi, Glances se automatski pokrace
+- API verzija za Glances 4.x je uvijek 4
+- Port 61208 je standardni Glances port
+
+
+PROVJERA DA LI SVE RADI
+-------------------------
+U browseru monitoring servera otvori:
+   http://tvoj-ddns.no-ip.biz:61208/api/4/cpu
+
+Treba vratiti JSON sa CPU podacima.

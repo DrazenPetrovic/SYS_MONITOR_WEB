@@ -27,6 +27,7 @@ function timeLabel() {
 export default function Dashboard() {
   const { username, logout } = useAuth();
   const [view, setView] = useState("home");
+  const [originView, setOriginView] = useState("home");
   const [servers, setServers] = useState([]);
   const [serverStatus, setServerStatus] = useState({});
   const [activeServer, setActiveServer] = useState(null);
@@ -77,8 +78,13 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
+  const serverList = servers.filter((s) => s.type !== "computer");
+  const computerList = servers
+    .filter((s) => s.type === "computer")
+    .map((s) => ({ ...s, configured: true }));
+
   const serverButtons = Array.from({ length: 3 }, (_unused, idx) => {
-    const configured = servers[idx];
+    const configured = serverList[idx];
     if (configured) return { ...configured, configured: true };
     return {
       id: `server${idx + 1}`,
@@ -206,7 +212,8 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [fetchMysqlData, view, activeServer]);
 
-  const openServer = (server) => {
+  const openServer = (server, from = view) => {
+    setOriginView(from);
     setView("server");
     if (!server.configured) {
       setActiveServer(null);
@@ -249,8 +256,8 @@ export default function Dashboard() {
             <MikrotikCard data={mikrotikData} showAll />
 
             <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 md:p-5">
-              <h2 className="text-white font-medium mb-3">Odaberi server</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <h2 className="text-white font-medium mb-3">Odaberi</h2>
+              <div className="grid grid-cols-4 gap-2">
                 {serverButtons.map((s) => {
                   const status = serverStatus[s.id];
                   const mysqlBadgeClass =
@@ -263,21 +270,21 @@ export default function Dashboard() {
                     <button
                       key={s.id}
                       onClick={() => openServer(s)}
-                      className="w-full rounded-lg px-4 py-4 bg-blue-600 text-white text-base font-semibold hover:bg-blue-500 active:scale-[0.99] transition-all text-left"
+                      className="w-full rounded-lg px-3 py-3 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 active:scale-[0.99] transition-all text-left"
                     >
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <div className="truncate">{s.name}</div>
                           {s.configured && s.host && (
-                            <div className="text-xs text-blue-100/80 mt-0.5 truncate font-normal">
+                            <div className="text-[11px] text-blue-100/80 mt-0.5 truncate font-normal">
                               {getServerIpLabel(s)}
                             </div>
                           )}
                         </div>
                         {s.configured && status && (
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 shrink-0">
                             <div
-                              className={`w-2 h-2 rounded-full ${
+                              className={`w-1.5 h-1.5 rounded-full ${
                                 status.glancesOk ? "bg-green-400" : "bg-red-400"
                               }`}
                               title={
@@ -285,7 +292,7 @@ export default function Dashboard() {
                               }
                             />
                             <div
-                              className={`w-2 h-2 rounded-full ${mysqlBadgeClass}`}
+                              className={`w-1.5 h-1.5 rounded-full ${mysqlBadgeClass}`}
                               title={
                                 status.mysqlStatus === "ok"
                                   ? "MySQL OK"
@@ -297,23 +304,105 @@ export default function Dashboard() {
                           </div>
                         )}
                       </div>
-                      <div className="text-xs text-blue-100 mt-1">
-                        {s.configured
-                          ? "Otvori detalje"
-                          : "Nije jos konfigurisan"}
+                      <div className="text-[11px] text-blue-100 mt-1">
+                        {s.configured ? "Otvori detalje" : "Nije konfigurisano"}
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {/* 4. dugme — Računari */}
+                <button
+                  onClick={() => setView("computers")}
+                  className="w-full rounded-lg px-3 py-3 bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-600 active:scale-[0.99] transition-all text-left"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate">Računari</div>
+                    {computerList.length > 0 && (
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          computerList.some(
+                            (c) => serverStatus[c.id]?.glancesOk,
+                          )
+                            ? "bg-green-300"
+                            : "bg-red-400"
+                        }`}
+                      />
+                    )}
+                  </div>
+                  <div className="text-[11px] text-emerald-100 mt-1">
+                    {computerList.length} računar
+                    {computerList.length !== 1 ? "a" : ""}
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === "computers" && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 md:p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-medium">Računari</h2>
+              <button
+                onClick={() => setView("home")}
+                className="px-3 py-1.5 rounded bg-slate-700 text-white text-sm hover:bg-slate-600"
+              >
+                ← Nazad
+              </button>
+            </div>
+            {computerList.length === 0 ? (
+              <div className="text-slate-500 text-sm py-6 text-center">
+                Nema konfiguriranih računara.
+                <br />
+                Dodaj{" "}
+                <span className="font-mono text-slate-400">
+                  GLANCES4_TYPE=computer
+                </span>{" "}
+                u .env
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {computerList.map((c) => {
+                  const status = serverStatus[c.id];
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => openServer(c, "computers")}
+                      className="w-full rounded-lg px-3 py-3 bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-600 active:scale-[0.99] transition-all text-left"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate">{c.name}</div>
+                          {c.location && (
+                            <div className="text-[11px] text-emerald-200/70 mt-0.5 truncate font-normal">
+                              {c.location}
+                            </div>
+                          )}
+                        </div>
+                        {status && (
+                          <div
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                              status.glancesOk ? "bg-green-300" : "bg-red-400"
+                            }`}
+                          />
+                        )}
+                      </div>
+                      <div className="text-[11px] text-emerald-100 mt-1">
+                        Otvori detalje
                       </div>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {view === "server" && !metrics && (
           <div className="flex flex-col items-center justify-center py-24 text-slate-400">
             <button
-              onClick={() => setView("home")}
+              onClick={() => setView(originView)}
               className="mb-6 px-4 py-2 rounded bg-slate-700 text-white hover:bg-slate-600"
             >
               Nazad na glavnu
@@ -330,30 +419,34 @@ export default function Dashboard() {
           <div className="space-y-3 md:space-y-4">
             <div className="flex items-center justify-between gap-2">
               <button
-                onClick={() => setView("home")}
+                onClick={() => setView(originView)}
                 className="px-4 py-2 rounded bg-slate-700 text-white hover:bg-slate-600"
               >
                 Nazad na glavnu
               </button>
               <div className="flex gap-2 overflow-x-auto">
-                {serverButtons.map((s) => (
-                  <button
-                    key={`${s.id}-switch`}
-                    onClick={() => openServer(s)}
-                    className={`px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap text-left leading-tight ${
-                      activeServer === s.id && s.configured
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-700 text-slate-300"
-                    }`}
-                  >
-                    <div>{s.name}</div>
-                    {s.configured && s.host && (
-                      <div className="text-[11px] font-normal opacity-80 mt-0.5">
-                        {getServerIpLabel(s)}
-                      </div>
-                    )}
-                  </button>
-                ))}
+                {(originView === "computers" ? computerList : serverButtons).map(
+                  (s) => (
+                    <button
+                      key={`${s.id}-switch`}
+                      onClick={() => openServer(s, originView)}
+                      className={`px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap text-left leading-tight ${
+                        activeServer === s.id
+                          ? originView === "computers"
+                            ? "bg-emerald-600 text-white"
+                            : "bg-blue-600 text-white"
+                          : "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div>{s.name}</div>
+                      {s.host && (
+                        <div className="text-[11px] font-normal opacity-80 mt-0.5">
+                          {getServerIpLabel(s)}
+                        </div>
+                      )}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
 

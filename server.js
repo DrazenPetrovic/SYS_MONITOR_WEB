@@ -21,6 +21,8 @@ for (let i = 1; ; i++) {
     host,
     apiVersion: process.env[`GLANCES${i}_API_VERSION`] || "3",
     mysqlId: process.env[`GLANCES${i}_MYSQL`] || null,
+    type: process.env[`GLANCES${i}_TYPE`] || "server",
+    location: process.env[`GLANCES${i}_LOCATION`] || null,
   });
 }
 
@@ -60,7 +62,7 @@ app.post("/api/login", (req, res) => {
 });
 
 app.get("/api/servers", authenticate, (_req, res) => {
-  res.json(GLANCES_SERVERS.map(({ id, name, host }) => ({ id, name, host })));
+  res.json(GLANCES_SERVERS.map(({ id, name, host, type, location }) => ({ id, name, host, type, location })));
 });
 
 app.get("/api/server-status", authenticate, async (_req, res) => {
